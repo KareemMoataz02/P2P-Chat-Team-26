@@ -356,15 +356,17 @@ class peerMain:
                 password = input("password: ")
                 # asks for the port number for server's tcp socket
                 try:
-                    peerServerPort = int(input("Enter a port number for peer server: "))
+                    peerServerPort = int(
+                        input("Enter a port number for peer server: "))
                     print("----> " + str(peerServerPort))
                 except ValueError:
                     cmsg.red_message("Port number should be an integer...")
                     continue
 
                 check_port = socket(AF_INET, SOCK_STREAM)
-                portUsed = check_port.connect_ex((self.registryName, peerServerPort)) == 0
-                if(portUsed):
+                portUsed = check_port.connect_ex(
+                    (self.registryName, peerServerPort)) == 0
+                if (portUsed):
                     cmsg.red_message("Port is already in use...")
                     continue
 
@@ -571,6 +573,60 @@ class peerMain:
             message.encode(), (self.registryName, self.registryUDPPort))
         self.timer = threading.Timer(1, self.sendHelloMessage)
         self.timer.start()
+
+    def roomList(self):
+        message = "ROOM-LIST"
+        logging.info("Send to " + self.registryName + ":" +
+                     str(self.registryPort) + " -> " + message)
+        self.tcpClientSocket.send(message.encode())
+        response = self.tcpClientSocket.recv(1024).decode()
+        cmsg.green_message(str(response))
+        logging.info("Received from " + self.registryName + " -> " + response)
+
+    def onlineList(self):
+        message = "ONLINE"
+        logging.info("Send to " + self.registryName + ":" +
+                     str(self.registryPort) + " -> " + message)
+        self.tcpClientSocket.send(message.encode())
+        response = self.tcpClientSocket.recv(1024).decode()
+        cmsg.green_message(str(response))
+        logging.info("Received from " + self.registryName + " -> " + response)
+
+    def createRoom(self, roomId):
+        message = "CREATE-ROOM " + roomId
+        logging.info("Send to " + self.registryName + ":" +
+                     str(self.registryPort) + " -> " + message)
+        self.tcpClientSocket.send(message.encode())
+        response = self.tcpClientSocket.recv(1024).decode()
+        logging.info("Received from " + self.registryName + " -> " + response)
+        if response == "create-room-success":
+            cmsg.green_message("Chat room created successfully.")
+        elif response == "chat-room-exist":
+            cmsg.red_message("chat room already exits")
+
+    def joinRoom(self, roomId):
+        message = "JOIN-ROOM " + roomId + " " + str(self.roomServerPort)
+        logging.info("Send to " + self.registryName + ":" +
+                     str(self.registryPort) + " -> " + message)
+        self.tcpClientSocket.send(message.encode())
+        response = self.tcpClientSocket.recv(1024).decode()
+        if '[' in response and ']' in response:
+            list_start = response.index('[')
+            list_end = response.index(']') + 1
+            list_string = response[list_start:list_end]
+            response2 = eval(list_string)
+            response = response.split()
+            logging.info("Received from " + self.registryName +
+                         " -> " + " ".join(response))
+        if response[0] == "join-room-success":
+            cmsg.green_message(roomId + " is found successfully")
+            return response2
+        elif response[0] == "join-room-fail":
+            print(roomId + " is not found")
+            return 0
+        else:
+            cmsg.red_message("Chat room doesn't exist")
+        return 0
 
 
 # peer is started
