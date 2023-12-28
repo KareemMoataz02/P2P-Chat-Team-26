@@ -11,7 +11,7 @@ import message as cmsg
 class PeerServer(threading.Thread):
 
     # Peer server initialization
-    def __init__(self, username, peerServerPort):
+    def __init__(self, username, peerServerPort, roomServerPort):
         threading.Thread.__init__(self)
         # keeps the username of the peer
         self.username = username
@@ -19,6 +19,8 @@ class PeerServer(threading.Thread):
         self.tcpServerSocket = socket(AF_INET, SOCK_STREAM)
         # port number of the peer server
         self.peerServerPort = peerServerPort
+        self.roomServerPort = roomServerPort
+
         # if 1, then user is already chatting with someone
         # if 0, then user is not chatting with anyone
         self.isChatRequested = 0
@@ -32,12 +34,15 @@ class PeerServer(threading.Thread):
         self.isOnline = True
         # keeps the username of the peer that this peer is chatting with
         self.chattingClientName = None
+        self.chattingClientName = None
+        self.chat = 0
+        self.room = 0
 
     # main method of the peer server thread
 
     def run(self):
 
-        print("Peer server started...")
+        cmsg.green_message("Peer server started...")
 
         # gets the ip address of this peer
         # first pip install bcrypts to get it for windows devices
@@ -164,7 +169,7 @@ class PeerServer(threading.Thread):
 # Client side of peer
 class PeerClient(threading.Thread):
     # variable initializations for the client side of the peer
-    def __init__(self, ipToConnect, portToConnect, username, peerServer, responseReceived):
+    def __init__(self, ipToConnect, portToConnect, username, peerServer, responseReceived, status, roomId, roomUsers: list):
         threading.Thread.__init__(self)
         # keeps the ip address of the peer that this will connect
         self.ipToConnect = ipToConnect
@@ -182,6 +187,15 @@ class PeerClient(threading.Thread):
         self.responseReceived = responseReceived
         # keeps if this client is ending the chat or not
         self.isEndingChat = False
+
+        # status room or chat
+        self.status = status
+
+        self.roomId = roomId
+
+        self.roomUsers = roomUsers
+
+        self.emptyRoom = False
 
     # main method of the peer client thread
 
