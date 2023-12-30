@@ -143,6 +143,29 @@ class ClientThread(threading.Thread):
                         response = "search-user-not-found"
                         logging.info("Send to " + self.ip + ":" + str(self.port) + " -> " + response) 
                         self.tcpClientSocket.send(response.encode())
+                elif message[0] == "ROOM-EXIST":
+                    exist = db.is_room_exist(message[1])
+                    response = "room-exist" if exist else "room-not-exist"
+                    logging.info("Send to " + self.ip + ":" + str(self.port) + " -> " + response) 
+                    self.tcpClientSocket.send(response.encode())
+                elif message[0] == "CREATE-ROOM":
+                    status = db.create_room(message[1])
+                    print(status)
+                    response = "create-room-success" if status else "chat-room-exist"
+                    logging.info("Send to " + self.ip + ":" + str(self.port) + " -> " + response) 
+                    self.tcpClientSocket.send(response.encode())
+                elif message[0] == "JOIN-ROOM":
+                    status = db.is_room_exist(message[1])
+                    if status:
+                        db.update_room(message[1], message[2])
+                    response = "join-room-success" if status else "room-not-exist"
+                    logging.info("Send to " + self.ip + ":" + str(self.port) + " -> " + response) 
+                    self.tcpClientSocket.send(response.encode())
+                elif message[0] == "GET-ROOM-PEERS":
+                    peers = db.get_room_users(message[1])
+                    response = ','.join(str(x) for x in peers)
+                    logging.info("Send to " + self.ip + ":" + str(self.port) + " -> " + response) 
+                    self.tcpClientSocket.send(response.encode())
             except OSError as oErr:
                 logging.error("OSError: {0}".format(oErr)) 
                 break

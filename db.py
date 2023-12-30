@@ -64,23 +64,20 @@ class DB:
         return bool(self.db.rooms.find_one({'roomId': roomId}))
 
     def create_room(self, roomId):
-        try:
-            if self.is_room_exist(roomId):
-                raise ValueError(f"Room with id {roomId} already exists.")
-
-            room = {"peers": []}
-            self.db.rooms.insert_one(room)
-            logging.info(f"Room {roomId} created successfully.")
-        except DuplicateKeyError:
-            raise ValueError(f"Room with id {roomId} already exists.")
+        print(self.is_room_exist(roomId))
+        if self.is_room_exist(roomId):
+            return False
+        room = {"peers": [], "roomId": roomId}
+        self.db.rooms.insert_one(room)
+        return True
 
     def get_room_users(self, roomId):
         res = self.db.rooms.find_one({"roomId": roomId})
         return res.get("peers", [])
 
-    def update_room(self, roomId, peers):
-        projection = {"_id": roomId}
-        update_data = {"$set": {"peers": peers}}
+    def update_room(self, roomId, peer):
+        projection = {"roomId": roomId}
+        update_data = {"$push": {"peers": peer}}
         self.db.rooms.update_one(projection, update_data)
         logging.info(f"Room {roomId} updated with new peers.")
 
