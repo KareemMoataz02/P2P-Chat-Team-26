@@ -89,7 +89,6 @@ class PeerServer(threading.Thread):
                             self.connectedPeerSocket = connected
                             self.connectedPeerIP = addr[0]
 
-
                     # if the socket that receives the data is the one that
                     # is used to communicate with a connected peer, then enters here
                     else:
@@ -137,18 +136,34 @@ class PeerServer(threading.Thread):
                             inputs.remove(s)
                         elif messageReceived[:13] == "NEW-ROOM-PEER":
                             newPeer = messageReceived.split()
-                            cmsg.green_message(f"{newPeer[1]} connected to room")
-                            newClient = PeerClient(newPeer[2], int(newPeer[3]), self.username, self, None, 1, None, None)
+                            cmsg.green_message(
+                                f"{newPeer[1]} connected to room")
+                            newClient = PeerClient(newPeer[2], int(
+                                newPeer[3]), self.username, self, None, 1, None, None)
                             newClient.start()
                             newClient.connected.wait()
                             self.roompeers.append(newClient)
                         # Room message (ROOM-MESSAGE)
                         elif messageReceived[:2] != ":q" and len(messageReceived) != 0 and messageReceived[:12] == "ROOM-MESSAGE":
                             message = messageReceived.split(" ")
-                            print("\n" + message[1] + ": " + " ".join(message[2:]))
+                            print("\n" + message[1] +
+                                  ": " + " ".join(message[2:]))
+
+                        elif messageReceived[:12] == "LEAVE-ROOM":
+                            message = messageReceived.split(" ")
+                            port = int(message[1])
+                            peer_name = message[2]
+                            for room_peer in self.roompeers:
+                                if room_peer.port == port:
+                                    self.roompeers.remove(room_peer)
+                                    # send message to room peers that peer left
+                                    cmsg.green_message(
+                                        f"{peer_name} left the room")
+                                    break
+
                         # if a message is received, and if this is not a quit message ':q' and
                         # if it is not an empty message, show this message to the user
-                        elif messageReceived[:2] != ":q" and len(messageReceived) != 0:  
+                        elif messageReceived[:2] != ":q" and len(messageReceived) != 0:
                             print(f"oooooh -> {messageReceived[:11]}")
                             print(messageReceived)
                             print(self.chattingClientName +
@@ -176,7 +191,7 @@ class PeerServer(threading.Thread):
                                 "User you're chatting with suddenly ended the chat")
                             cmsg.yellow_message(
                                 "Press enter to quit the chat: ")
-            # handles the exceptions, and logs them
+
             except OSError as oErr:
                 logging.error("OSError: {0}".format(oErr))
             except ValueError as vErr:
@@ -324,11 +339,12 @@ class PeerClient(threading.Thread):
                                  ":" + str(self.portToConnect) + " -> :q")
                 self.responseReceived = None
                 self.tcpClientSocket.close()
-                
+
     def sendRoomMessage(self, message):
         message = "ROOM-MESSAGE " + self.username + " " + message
         self.tcpClientSocket.send(message.encode())
-        logging.info("Send to " + self.ipToConnect + ":" + str(self.portToConnect) + " -> " + message)
+        logging.info("Send to " + self.ipToConnect + ":" +
+                     str(self.portToConnect) + " -> " + message)
 
 
 # main process of the peer
@@ -403,7 +419,8 @@ class peerMain:
                     continue
 
                 check_port = socket(AF_INET, SOCK_STREAM)
-                portUsed = check_port.connect_ex((self.registryName, peerServerPort)) == 0
+                portUsed = check_port.connect_ex(
+                    (self.registryName, peerServerPort)) == 0
                 if portUsed:
                     cmsg.red_message("Peer port is already in use...")
                     continue
@@ -420,7 +437,8 @@ class peerMain:
                     self.peerServerPort = peerServerPort
                     # self.roomServerPort = roomServerPort
                     # creates the server thread for this peer, and runs it
-                    self.peerServer = PeerServer(self.loginCredentials[0], self.peerServerPort)
+                    self.peerServer = PeerServer(
+                        self.loginCredentials[0], self.peerServerPort)
                     self.peerServer.start()
                     # hello message is sent to registry
                     self.sendHelloMessage()
@@ -472,7 +490,8 @@ class peerMain:
                     if roomid == "q":
                         break
                     elif len(roomid) < 3:
-                        cmsg.red_message("Room name can't be less than 3 characters")
+                        cmsg.red_message(
+                            "Room name can't be less than 3 characters")
                     else:
                         status = self.createRoom(roomid)
                         if status == "create-room-success":
@@ -483,15 +502,14 @@ class peerMain:
                 if status == "join-room-success":
                     self.peerServer.room = 1
                     self.connectAllPeers(roomid)
-                    while 1:
-                        message = input("Message: ")
-                        if message == "q":
-                            break
-                        else:
-                            self.sendMessage(message, roomid)
+                    while True:
+                        message = input("Message (q to exit): ")
+                        self.sendMessage(message, roomid)
+                        if message == ":q":
+                            cmsg.red_message("Leaving room...")
+                            self.leaveRoom(roomid)
+                        break
 
-                
-                
             # if this is the receiver side then it will get the prompt to accept an incoming request during the main loop
             # that's why response is evaluated in main process not the server thread even though the prompt is printed by server
             # if the response is ok then a client is created for this peer with the OK message and that's why it will directly
@@ -528,8 +546,16 @@ class peerMain:
         # self.tcpClientSocket.send(message.encode())
         # response = self.tcpClientSocket.recv(1024).decode()
         # peers = response.split(",")
-        for peer in self.peerServer.roompeers:
-            peer.sendRoomMessage(message)
+        if message == ":q":
+            message = "LEAVE-ROOM " + " " + \
+                str(self.peerServerPort) + " " + self.loginCredentials[0]
+            self.tcpClientSocket.send(message.encode())
+            for peer in self.peerServer.roompeers:
+                cmsg.red_message(f"{self.loginCredentials[0]} left the room")
+        else:
+            for peer in self.peerServer.roompeers:
+                peer.sendRoomMessage(message)
+
         # logging.info("Received from " + self.registryName + " -> " + response)
 
     def connectAllPeers(self, roomid):
@@ -545,23 +571,41 @@ class peerMain:
             if int(peer) == int(self.peerServerPort):
                 # print("CLIENT SKIPPED")
                 continue
-            self.peerClient = PeerClient(self.registryName, int(peer), self.loginCredentials[0], self.peerServer, None, 1, None, None)
+            self.peerClient = PeerClient(self.registryName, int(
+                peer), self.loginCredentials[0], self.peerServer, None, 1, None, None)
             self.peerClient.start()
             # self.peerClient.join()
             self.peerClient.connected.wait()
-            newPeerMessage = "NEW-ROOM-PEER " + self.loginCredentials[0] + "  " + self.registryName + " " + str(self.peerServer.peerServerPort)
+            newPeerMessage = "NEW-ROOM-PEER " + \
+                self.loginCredentials[0] + "  " + self.registryName + \
+                " " + str(self.peerServer.peerServerPort)
             self.peerClient.tcpClientSocket.send(newPeerMessage.encode())
             self.peerServer.roompeers.append(self.peerClient)
             # print(f"CONNECTED TO -> {peer}")
         # print("Finished connecting to peers")
         logging.info("Received from " + self.registryName + " -> " + response)
 
+    def leaveRoom(self, roomid):
+        try:
+            # Notify the registry about leaving the room
+            leaveMessage = "LEAVE-ROOM" + " " + \
+                roomid + " " + str(self.peerServerPort)
+            self.tcpClientSocket.send(leaveMessage.encode())
+            # Receive the response from the registry
+            response = self.tcpClientSocket.recv(1024).decode()
+            if response == "leave-room-success":
+                self.room = None
+                print("Failed to leave the room.")
+        except Exception as e:
+            logging.error(f"Error during leaveRoom: {e}")
+
     # def newRoomPeer(self, connected, addr):
     #     self.peerServer.roompeers.append(PeerClient(self.registryName, addr[1], self.loginCredentials[0], self.peerServer, None, 1, None, None))
     #     self.peerServer.roompeers[-1].connected.wait()
     #     print(f"New peer addedd -> {addr[1]}")
-    
+
     # account creation function
+
     def createAccount(self, username, password):
         # join message to create an account is composed and sent to registry
         # if response is success then informs the user for account creation
@@ -726,7 +770,7 @@ class peerMain:
         elif response == "room-not-exist":
             cmsg.red_message("Chat room doesn't exist")
         return response
-    
+
     def roomExist(self, roomId):
         message = "ROOM-EXIST " + roomId
         logging.info("Send to " + self.registryName + ":" +

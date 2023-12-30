@@ -86,3 +86,12 @@ class DB:
         update_data = {"$pull": {"peers": peer}}
         self.db.rooms.update_one(projection, update_data)
         logging.info(f"User {peer} removed from room {roomId}.")
+
+    def remove_room(self, roomId):
+        if not self.is_room_exist(roomId):
+            logging.error(f"Error removing room {roomId}. Room not found.")
+            return False
+
+        self.db.rooms.delete_one({"roomId": roomId})
+        logging.info(f"Room {roomId} removed.")
+        return True
